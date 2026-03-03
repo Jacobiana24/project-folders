@@ -21,8 +21,7 @@ import frontmatter
 
 CONFIG_FILE = "folders_config.json"
 DEFAULT_CONFIG = {
-    "vault_path": r"C:\Users\jacob.hand\Documents\My Brain\Work\Projects",
-    "client_filter": "Work/Projects/Clients/Stockport Metropolitan Council.md",
+    "vault_path": r"C:\Users\jacob.hand\OneDrive - Stockport Metropolitan Borough Council\Documents\Jacob Hand SMBC PKM\Slip Box",
     "window_width": 900,
     "window_height": 600,
     "window_x": 150,
@@ -133,24 +132,8 @@ class ProjectNote:
             return str(val).strip().strip('"').strip("'")
         return None
 
-    @property
-    def client(self) -> str | None:
-        """Return the client path string. Handles both string and
-        Obsidian wiki-link formats (e.g. [[path]] or raw path)."""
-        val = self.meta.get("Client")
-        if val is None:
-            return None
-        s = str(val).strip()
-        # Strip wiki-link brackets if present: [[path]] -> path
-        if s.startswith("[[") and s.endswith("]]"):
-            s = s[2:-2]
-        # Strip quotes
-        s = s.strip('"').strip("'")
-        return s
-
-
-def scan_projects(vault_path: str, client_filter: str) -> list[ProjectNote]:
-    """Scan vault for active projects matching the client filter with a Project_Folder."""
+def scan_projects(vault_path: str) -> list[ProjectNote]:
+    """Scan vault for active Project notes with a Project_Folder."""
     projects = []
     vp = Path(vault_path)
     if not vp.exists():
@@ -163,8 +146,6 @@ def scan_projects(vault_path: str, client_filter: str) -> list[ProjectNote]:
                 p.cls == "Project"
                 and p.status == "Active"
                 and p.project_folder
-                and p.client
-                and client_filter in p.client
             ):
                 projects.append(p)
         except Exception as e:
@@ -245,10 +226,7 @@ class App(ctk.CTk):
         self._refresh()
 
     def _refresh(self):
-        self.projects = scan_projects(
-            self.config["vault_path"],
-            self.config["client_filter"],
-        )
+        self.projects = scan_projects(self.config["vault_path"])
         self._populate_buttons()
 
     def _populate_buttons(self):
@@ -364,7 +342,7 @@ class App(ctk.CTk):
 
         dialog = ctk.CTkToplevel(self)
         dialog.title("Settings")
-        dialog.geometry("550x240")
+        dialog.geometry("500x180")
         dialog.transient(self)
         dialog.grab_set()
 
@@ -387,23 +365,12 @@ class App(ctk.CTk):
 
         ctk.CTkButton(path_frame, text="Browse", width=80, command=browse).pack(side="right")
 
-        # Client filter
-        ctk.CTkLabel(dialog, text="Client Filter (path substring):").pack(padx=16, pady=(4, 4), anchor="w")
-        client_entry = ctk.CTkEntry(dialog, width=480)
-        client_entry.pack(padx=16, pady=(0, 12))
-        client_entry.insert(0, self.config["client_filter"])
-
         def save():
             new_path = path_entry.get().strip()
-            new_client = client_entry.get().strip()
             if not new_path or not Path(new_path).exists():
                 messagebox.showerror("Invalid Path", "The vault path does not exist.", parent=dialog)
                 return
-            if not new_client:
-                messagebox.showerror("Invalid Filter", "Client filter cannot be empty.", parent=dialog)
-                return
             self.config["vault_path"] = new_path
-            self.config["client_filter"] = new_client
             save_config(self.config)
             self._refresh()
             dialog.destroy()
