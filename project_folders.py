@@ -44,6 +44,13 @@ BTN_COPIED = "#28a745"
 
 
 def config_path() -> Path:
+    """Return path to config file in user-writable %APPDATA% directory."""
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        if appdata:
+            d = Path(appdata) / "ProjectFolders"
+            d.mkdir(parents=True, exist_ok=True)
+            return d / CONFIG_FILE
     if getattr(sys, "frozen", False):
         base = Path(sys.executable).parent
     else:
@@ -67,24 +74,31 @@ def load_config() -> dict:
 
 def save_config(cfg: dict):
     try:
-        with open(config_path(), "w", encoding="utf-8") as f:
+        cp = config_path()
+        tmp = cp.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        tmp.replace(cp)
     except Exception as e:
         print(f"Warning: could not save config: {e}")
 
 
 def open_folder(path_str: str):
-    """Open a folder in Windows Explorer. Handles missing folders gracefully."""
+    """Open a folder in Windows Explorer. Only opens directories — refuses
+    files, URLs, and executables to prevent accidental code execution."""
     p = Path(path_str)
     try:
-        if p.exists():
+        # Reject anything that isn't an existing directory
+        if p.is_dir():
             os.startfile(str(p))
         else:
-            # Try opening the parent if the exact path doesn't exist
-            parent = p
-            while parent != parent.parent and not parent.exists():
+            # Walk up to find the nearest existing parent directory
+            parent = p.parent
+            while parent != parent.parent and not parent.is_dir():
                 parent = parent.parent
-            if parent.exists():
+            if parent.is_dir():
                 os.startfile(str(parent))
     except Exception as e:
         print(f"Warning: could not open folder: {e}")
@@ -102,7 +116,7 @@ class ProjectNote:
 
     def load(self):
         with open(self.filepath, "r", encoding="utf-8") as f:
-            self.post = frontmatter.load(f)
+            self.post = frontmatter.load(f, handler=frontmatter.YAMLHandler())
 
     @property
     def meta(self) -> dict:
@@ -133,13 +147,22 @@ class ProjectNote:
         return None
 
 def _quick_has_class_project(filepath: Path) -> bool:
-    """Fast check: read the first 1KB to see if it likely has Class: Project."""
+    """Fast check: read only the YAML frontmatter block (between --- delimiters)
+    to see if it contains Class: Project. Skips files without frontmatter."""
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            head = f.read(1024)
-        if not head.startswith("---"):
-            return False
-        return "Class: Project" in head or 'Class: "Project"' in head or "Class: 'Project'" in head
+            first_line = f.readline()
+            if not first_line.startswith("---"):
+                return False
+            header_lines = []
+            for line in f:
+                if line.startswith("---"):
+                    break
+                header_lines.append(line)
+                if len(header_lines) > 200:
+                    break
+            header = "".join(header_lines)
+        return "Class: Project" in header or 'Class: "Project"' in header or "Class: 'Project'" in header
     except Exception:
         return False
 
