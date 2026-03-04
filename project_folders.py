@@ -200,9 +200,34 @@ class App(ctk.CTk):
             fg_color="#555555", hover_color="#666666"
         ).pack(side="right", padx=(0, 6))
 
-        # Scrollable button area
-        self.scroll = ctk.CTkScrollableFrame(self)
-        self.scroll.pack(fill="both", expand=True, padx=10, pady=8)
+        # Dual-scroll button area
+        scroll_outer = ctk.CTkFrame(self, fg_color="transparent")
+        scroll_outer.pack(fill="both", expand=True, padx=10, pady=8)
+
+        self._scroll_canvas = tk.Canvas(scroll_outer, bg="#2b2b2b", highlightthickness=0)
+        scroll_v = ctk.CTkScrollbar(scroll_outer, command=self._scroll_canvas.yview)
+        scroll_h = ctk.CTkScrollbar(scroll_outer, orientation="horizontal", command=self._scroll_canvas.xview)
+        self._scroll_canvas.configure(yscrollcommand=scroll_v.set, xscrollcommand=scroll_h.set)
+
+        scroll_h.pack(side="bottom", fill="x")
+        scroll_v.pack(side="right", fill="y")
+        self._scroll_canvas.pack(side="left", fill="both", expand=True)
+
+        self.scroll = ctk.CTkFrame(self._scroll_canvas, fg_color="transparent")
+        self._scroll_canvas_window = self._scroll_canvas.create_window((0, 0), window=self.scroll, anchor="nw")
+
+        self.scroll.bind("<Configure>", lambda e: self._scroll_canvas.configure(
+            scrollregion=self._scroll_canvas.bbox("all")
+        ))
+        self._scroll_canvas.bind("<Configure>", self._on_scroll_canvas_configure)
+        self._scroll_canvas.bind("<Enter>", lambda e: (
+            self._scroll_canvas.bind_all("<MouseWheel>", lambda ev: self._scroll_canvas.yview_scroll(int(-1 * (ev.delta / 120)), "units")),
+            self._scroll_canvas.bind_all("<Shift-MouseWheel>", lambda ev: self._scroll_canvas.xview_scroll(int(-1 * (ev.delta / 120)), "units")),
+        ))
+        self._scroll_canvas.bind("<Leave>", lambda e: (
+            self._scroll_canvas.unbind_all("<MouseWheel>"),
+            self._scroll_canvas.unbind_all("<Shift-MouseWheel>"),
+        ))
 
         # Status bar
         self.status_frame = ctk.CTkFrame(self, height=28, corner_radius=0, fg_color="#1a1a2e")
@@ -214,6 +239,10 @@ class App(ctk.CTk):
             font=ctk.CTkFont(size=12), text_color="#aaaaaa", anchor="w"
         )
         self.status_label.pack(fill="x", padx=12, pady=3)
+
+    def _on_scroll_canvas_configure(self, event=None):
+        canvas_width = event.width if event else self._scroll_canvas.winfo_width()
+        self._scroll_canvas.itemconfig(self._scroll_canvas_window, width=canvas_width)
 
     def _initial_load(self):
         vault = self.config["vault_path"]
@@ -277,15 +306,15 @@ class App(ctk.CTk):
                 btn = ctk.CTkButton(
                     container,
                     text=p.name,
-                    height=40,
-                    font=ctk.CTkFont(size=12, weight="bold"),
+                    height=20,
+                    font=ctk.CTkFont(size=9, weight="bold"),
                     fg_color=BTN_COLOR,
                     hover_color=BTN_HOVER,
                     corner_radius=6,
                     command=lambda proj=p: self._on_click(proj),
                 )
                 # Auto-size width to text content
-                btn.pack(side="left", padx=4, pady=4)
+                btn.pack(side="left", padx=2, pady=2)
 
     def _on_click(self, project: ProjectNote):
         folder_path = project.project_folder
