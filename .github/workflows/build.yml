@@ -24,7 +24,7 @@ jobs:
           pip install pyinstaller
 
       - name: Build exe
-        run: pyinstaller --onefile --windowed --name "ProjectFolders" project_folders.py
+        run: pyinstaller --onefile --windowed --name "ProjectFolders" --icon "folder.ico" project_folders.py
 
       - name: Upload exe
         uses: actions/upload-artifact@v4
