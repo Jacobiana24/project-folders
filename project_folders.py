@@ -132,6 +132,18 @@ class ProjectNote:
             return str(val).strip().strip('"').strip("'")
         return None
 
+def _quick_has_class_project(filepath: Path) -> bool:
+    """Fast check: read the first 1KB to see if it likely has Class: Project."""
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            head = f.read(1024)
+        if not head.startswith("---"):
+            return False
+        return "Class: Project" in head or 'Class: "Project"' in head or "Class: 'Project'" in head
+    except Exception:
+        return False
+
+
 def scan_projects(vault_path: str) -> list[ProjectNote]:
     """Scan vault for active Project notes with a Project_Folder."""
     projects = []
@@ -141,6 +153,8 @@ def scan_projects(vault_path: str) -> list[ProjectNote]:
 
     for md in sorted(vp.rglob("*.md")):
         try:
+            if not _quick_has_class_project(md):
+                continue
             p = ProjectNote(md)
             if (
                 p.cls == "Project"
@@ -255,10 +269,23 @@ class App(ctk.CTk):
                 "Vault Not Found",
                 f"Projects folder not found:\n{vault}\n\nUse Settings to set the correct path."
             )
+            return
         self._refresh()
 
     def _refresh(self):
-        self.projects = scan_projects(self.config["vault_path"])
+        """Load projects in a background thread to keep UI responsive."""
+        import threading
+
+        self.status_label.configure(text="Loading...", text_color="#ffcc00")
+
+        def _scan():
+            projects = scan_projects(self.config["vault_path"])
+            self.after(0, lambda: self._on_projects_loaded(projects))
+
+        threading.Thread(target=_scan, daemon=True).start()
+
+    def _on_projects_loaded(self, projects: list):
+        self.projects = projects
         self._populate_buttons()
 
     def _populate_buttons(self):
