@@ -22,8 +22,8 @@ import frontmatter
 CONFIG_FILE = "folders_config.json"
 DEFAULT_CONFIG = {
     "vault_path": r"C:\Users\jacob.hand\OneDrive - Stockport Metropolitan Borough Council\Documents\Jacob Hand SMBC PKM\Slip Box",
-    "window_width": 900,
-    "window_height": 600,
+    "window_width": 450,
+    "window_height": 300,
     "window_x": 150,
     "window_y": 150,
 }
@@ -180,29 +180,31 @@ class App(ctk.CTk):
 
     def _build_ui(self):
         # Top bar
-        top = ctk.CTkFrame(self, height=40, fg_color="transparent")
-        top.pack(fill="x", padx=10, pady=(6, 0))
+        top = ctk.CTkFrame(self, height=28, fg_color="transparent")
+        top.pack(fill="x", padx=4, pady=(2, 0))
 
         self.count_label = ctk.CTkLabel(
-            top, text="", font=ctk.CTkFont(size=13), anchor="w"
+            top, text="", font=ctk.CTkFont(size=9), anchor="w"
         )
         self.count_label.pack(side="left")
 
         ctk.CTkButton(
-            top, text="⚙ Settings", width=100, height=28,
+            top, text="⚙", width=28, height=22,
+            font=ctk.CTkFont(size=9),
             command=self._open_settings,
             fg_color="#555555", hover_color="#666666"
         ).pack(side="right")
 
         ctk.CTkButton(
-            top, text="🔄 Refresh", width=100, height=28,
+            top, text="🔄", width=28, height=22,
+            font=ctk.CTkFont(size=9),
             command=self._refresh,
             fg_color="#555555", hover_color="#666666"
-        ).pack(side="right", padx=(0, 6))
+        ).pack(side="right", padx=(0, 2))
 
         # Dual-scroll button area
         scroll_outer = ctk.CTkFrame(self, fg_color="transparent")
-        scroll_outer.pack(fill="both", expand=True, padx=10, pady=8)
+        scroll_outer.pack(fill="both", expand=True, padx=4, pady=4)
 
         self._scroll_canvas = tk.Canvas(scroll_outer, bg="#2b2b2b", highlightthickness=0)
         scroll_v = ctk.CTkScrollbar(scroll_outer, command=self._scroll_canvas.yview)
@@ -230,19 +232,20 @@ class App(ctk.CTk):
         ))
 
         # Status bar
-        self.status_frame = ctk.CTkFrame(self, height=28, corner_radius=0, fg_color="#1a1a2e")
+        self.status_frame = ctk.CTkFrame(self, height=22, corner_radius=0, fg_color="#1a1a2e")
         self.status_frame.pack(fill="x", side="bottom")
         self.status_frame.pack_propagate(False)
 
         self.status_label = ctk.CTkLabel(
             self.status_frame, text="Ready",
-            font=ctk.CTkFont(size=12), text_color="#aaaaaa", anchor="w"
+            font=ctk.CTkFont(size=9), text_color="#aaaaaa", anchor="w"
         )
-        self.status_label.pack(fill="x", padx=12, pady=3)
+        self.status_label.pack(fill="x", padx=6, pady=1)
 
     def _on_scroll_canvas_configure(self, event=None):
         canvas_width = event.width if event else self._scroll_canvas.winfo_width()
-        self._scroll_canvas.itemconfig(self._scroll_canvas_window, width=canvas_width)
+        content_width = self.scroll.winfo_reqwidth()
+        self._scroll_canvas.itemconfig(self._scroll_canvas_window, width=max(canvas_width, content_width))
 
     def _initial_load(self):
         vault = self.config["vault_path"]
@@ -273,7 +276,7 @@ class App(ctk.CTk):
 
         count = len(self.projects)
         self.count_label.configure(
-            text=f"📁  {count} active project{'s' if count != 1 else ''} — click to copy path & open folder"
+            text=f"📁 {count} project{'s' if count != 1 else ''} — click to copy & open"
         )
 
         # Group by effort
@@ -292,29 +295,26 @@ class App(ctk.CTk):
             if not projs:
                 continue
 
-            # Group heading
             ctk.CTkLabel(
                 self.scroll, text=group_label,
-                font=ctk.CTkFont(size=14, weight="bold"), anchor="w"
-            ).pack(fill="x", padx=4, pady=(12, 4))
+                font=ctk.CTkFont(size=10, weight="bold"), anchor="w"
+            ).pack(anchor="w", padx=2, pady=(4, 1))
 
-            # Button container for wrapping
             container = ctk.CTkFrame(self.scroll, fg_color="transparent")
-            container.pack(fill="x", padx=4, pady=2)
+            container.pack(anchor="w", padx=2, pady=0)
 
             for p in sorted(projs, key=lambda x: x.name):
                 btn = ctk.CTkButton(
                     container,
                     text=p.name,
-                    height=20,
+                    height=22,
                     font=ctk.CTkFont(size=9, weight="bold"),
                     fg_color=BTN_COLOR,
                     hover_color=BTN_HOVER,
-                    corner_radius=6,
+                    corner_radius=4,
                     command=lambda proj=p: self._on_click(proj),
                 )
-                # Auto-size width to text content
-                btn.pack(side="left", padx=2, pady=2)
+                btn.pack(side="left", padx=1, pady=1)
 
     def _on_click(self, project: ProjectNote):
         folder_path = project.project_folder
